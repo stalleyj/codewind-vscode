@@ -163,18 +163,22 @@ namespace Requester {
         // return doProjectRequest(project, url, body, Requester.post, "Build");
         const buildMsg = Translator.t(STRING_NS, "build");
         if (project.connection.remote) {
-            const localPath = MCUtil.fsPathToContainerPath(project.localPath);
-            Log.i(`Copying updated files from ${localPath} to ${project.connection.host}`);
-            const syncTime = Date.now();
-            const fileList = await requestUploadsRecursively(project.connection, project.id, localPath, localPath, project._lastSync);
-            Log.i(`Clearing old content for ${project.name} from ${project.connection.host}`);
-            await requestClear(project, fileList);
-            Log.i(`Sync complete for ${project.name} to ${project.connection.host} in ${Date.now() - syncTime}ms`);
-            project._lastSync = syncTime;
+            await syncFiles(project);
         } else {
             Log.i(`Local build from local file system at ${project.localPath}`);
         }
         await doProjectRequest(project, ProjectEndpoints.BUILD_ACTION, body, Requester.post, buildMsg);
+    }
+
+    export async function syncFiles(project: Project): Promise<void> {
+        const localPath = MCUtil.fsPathToContainerPath(project.localPath);
+        Log.i(`Copying updated files from ${localPath} to ${project.connection.host}`);
+        const syncTime = Date.now();
+        const fileList = await requestUploadsRecursively(project.connection, project.id, localPath, localPath, project._lastSync);
+        Log.i(`Clearing old content for ${project.name} from ${project.connection.host}`);
+        await requestClear(project, fileList);
+        Log.i(`Sync complete for ${project.name} to ${project.connection.host} in ${Date.now() - syncTime}ms`);
+        project._lastSync = syncTime;
     }
 
     export async function requestClear(project: Project, fileList: string[]): Promise<void> {
@@ -191,24 +195,26 @@ namespace Requester {
         Log.i(`requestUploadsRecursively for ${projectId} at ${inputPath}`);
         const files = await fs.readdir(inputPath);
         const fileList: string[] = [];
-        for (const f of files) {
-            const currentPath = `${inputPath}/${f}`;
-            const relativePath = path.relative(parentPath, currentPath);
-            fileList.push(relativePath);
-            // Log.i("Uploading " + currentPath);
-            const stats = await fs.stat(currentPath);
-            if (stats.isFile()) {
-                try {
-                    const lastModificationTime = stats.mtimeMs;
-                    if (lastModificationTime > lastSync) {
-                      await remoteUpload(connection, projectId, currentPath, parentPath);
+        if (files){
+            for (const f of files) {
+                const currentPath = `${inputPath}/${f}`;
+                const relativePath = path.relative(parentPath, currentPath);
+                fileList.push(relativePath);
+                // Log.i("Uploading " + currentPath);
+                const stats = await fs.stat(currentPath);
+                if (stats.isFile()) {
+                    try {
+                        const lastModificationTime = stats.mtimeMs;
+                        if (lastModificationTime > lastSync) {
+                        await remoteUpload(connection, projectId, currentPath, parentPath);
+                        }
+                    } catch (err) {
+                        Log.d(err);
                     }
-                } catch (err) {
-                    Log.d(err);
+                } else if (stats.isDirectory()) {
+                    const newFiles = await requestUploadsRecursively(connection, projectId, currentPath, parentPath, lastSync);
+                    fileList.push(...newFiles);
                 }
-            } else if (stats.isDirectory()) {
-                const newFiles = await requestUploadsRecursively(connection, projectId, currentPath, parentPath, lastSync);
-                fileList.push(...newFiles);
             }
         }
         return fileList;

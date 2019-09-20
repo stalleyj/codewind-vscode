@@ -55,15 +55,7 @@ export default class Connection implements vscode.QuickPickItem, vscode.Disposab
         this.versionStr = CWEnvironment.getVersionAsString(cwEnv.version);
         this.host = this.getHost(url);
         this.remote = true;
-
-        // caller must await on this promise before expecting this connection to function correctly
-        // it does happen very quickly (< 1s) but be aware of potential race here
-        if (!this.remote) {
-            this.initFileWatcherPromise = this.initFileWatcher();
-        } else {
-            // Disable file-watcher in remote mode for now.
-            this.initFileWatcherPromise = new Promise<void>((resolve) => (resolve()));
-        }
+        this.initFileWatcherPromise = this.initFileWatcher();
 
         Log.i(`Created new Connection @ ${this}, workspace ${this.workspacePath}`);
     }
@@ -99,6 +91,7 @@ export default class Connection implements vscode.QuickPickItem, vscode.Disposab
             return CreateFileWatcher(this.url.toString(), Log.getLogDir)
             .then((fw: FileWatcher) => {
                 this.fileWatcher = fw;
+                this.fileWatcher.setNotifyCallBack(this.fwCallbackFunction);
                 FWLogSettings.getInstance().setOutputLogsToScreen(false);
                 Log.i("File watcher is established");
             });
@@ -246,6 +239,16 @@ export default class Connection implements vscode.QuickPickItem, vscode.Disposab
             // Logger.logE(`Couldn't find project with ID ${projectID} on connection ${this}`);
         }
         return result;
+    }
+
+
+    public fwCallbackFunction = async (projectID: string) => {
+        const proj = await this.getProjectByID(projectID);
+        if (proj == null) {
+            // logger.log
+        } else {
+            await Requester.syncFiles(proj);
+        }
     }
 
     public async forceUpdateProjectList(wipeProjects: boolean = false): Promise<void> {
