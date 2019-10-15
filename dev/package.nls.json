@@ -5,12 +5,13 @@
     "viewName": "Codewind",
 
     "configTitle": "Codewind",
-    "configDescr_autoShowView": "Automatically expand the Codewind view after opening a Codewind workspace or project.",
-    "configDescr_promptToOpenWorkspace": "Prompt to open the Codewind Workspace when the Codewind extension is activated",
+    "configDescr_autoShowView": "Automatically expand the Codewind view after opening a Codewind project.",
     "configDescr_overviewOnCreation": "Open the Project Overview page after creating or adding a new Codewind project",
+    "configDescr_alwaysCreateProjectsInWorkspace": "Create new Codewind projects under the VS Code workspace. If the workspace has multiple root folders, the workspace folder will still have to be selected.",
 
     "commandCategory": "Codewind",
     "// Items starting with cmdID are not exposed to user": "",
+    "// All these cmdIDs must match the enum in Commands.ts": "",
 
     "// cmdID_activateConn": "ext.cw.activateConn",
     "// cmdTitle_activateConn": "Activate Connection",
@@ -18,20 +19,26 @@
     "// cmdID_deactivateConn": "ext.cw.deactivateConn",
     "// cmdTitle_deactivateConn": "Deactivate Connection",
 
+    "cmdID_newConnection": "ext.cw.newConnection",
+    "cmdTitle_newConnection": "New Codewind Connection",
+
     "cmdID_startCodewind": "ext.cw.startCodewind",
     "// See Commands.ts for explanation of the duplicated start/stop": "",
     "cmdID_startCodewind2": "ext.cw.startCodewind2",
-    "cmdTitle_startCodewind": "Start Codewind",
+    "cmdTitle_startCodewind": "Start Local Codewind",
 
     "cmdID_stopCodewind": "ext.cw.stopCodewind",
     "cmdID_stopCodewind2": "ext.cw.stopCodewind2",
-    "cmdTitle_stopCodewind": "Stop Codewind",
+    "cmdTitle_stopCodewind": "Stop Local Codewind",
 
     "cmdID_removeImages": "ext.cw.removeImages",
-    "cmdTitle_removeImages": "Remove Codewind Images",
+    "cmdTitle_removeImages": "Remove Local Codewind Images",
 
     "cmdID_refreshConnection": "ext.cw.refreshConnection",
     "cmdTitle_refreshConnection": "Refresh",
+
+    "cmdID_removeConnection": "ext.cw.removeConnection",
+    "cmdTitle_removeConnection": "Remove Connection",
 
     "cmdID_setRegistry": "ext.cw.setRegistry",
     "cmdTitle_setRegistry": "Set Deployment Registry",
@@ -48,8 +55,8 @@
     "cmdID_manageTemplateRepos": "ext.cw.manageTemplateRepos",
     "cmdTitle_manageTemplateRepos": "Manage Template Sources",
 
-    "cmdID_openFolder": "ext.cw.openWorkspaceFolder",
-    "cmdTitle_openFolder": "Open Codewind Workspace",
+    "cmdID_connectionOverview": "ext.cw.connectionOverview",
+    "cmdTitle_connectionOverview": "Open Connection Overview",
 
     "cmdID_addProjToWorkspace": "ext.cw.addProjectToWorkspace",
     "cmdTitle_addProjToWorkspace": "Add Project to Workspace",
@@ -116,14 +123,15 @@
         "See TreeItemFactory for how the Context IDs are set"
     ],
 
-    "isStoppedCodewind": "viewItem == ext.cw.cwstatus.stopped",
-    "isStartedCodewind": "viewItem == ext.cw.cwstatus.started",
+    "isTreeRoot": "viewItem == ext.cw.root",
 
-    "isInViewWithNothingSelected": "view == ext.cw.explorer && !viewItem",
-    "isConnection": "viewItem =~ /ext\\.cw\\.connection\\.(connected|disconnected)/",
-    "isActiveConnection": "viewItem == ext.cw.connection.connected",
-    "isInactiveConnection": "viewItem == ext.cw.connection.disconnected",
-    "isConnectingConnection": "viewItem == ext.cw.connection.connecting",
+    "isStoppedLocalCodewind": "viewItem =~ /.*local\\.stopped.*/",
+    "isStartedLocalCodewind": "viewItem =~ /.*local\\.started.*/",
+
+    "isConnection": "viewItem =~ /ext\\.cw\\.connection\\.(connected|disconnected).*/",
+    "isActiveConnection": "viewItem =~ /ext\\.cw\\.connection\\.connected.*/",
+    "isRemoteConnection": "viewItem =~ /ext\\.cw\\.connection\\.(connected|disconnected).*/ && viewItem =~ /^((?!local).)*$/",
+
     "isNoProjects": "viewItem == ext.cw.noProjects",
 
     "isProject":                "viewItem =~ /ext\\.cw\\.project.*/",

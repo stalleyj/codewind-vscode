@@ -12,13 +12,10 @@
  *******************************************************************************/
 
 import { Uri } from "vscode";
-import * as reqErrors from "request-promise-native/errors";
 
 import { MCEndpoints } from "../../constants/Endpoints";
 import Requester from "../project/Requester";
 import Log from "../../Logger";
-import Translator from "../../constants/strings/translator";
-import StringNamespaces from "../../constants/strings/StringNamespaces";
 import MCUtil from "../../MCUtil";
 
 // From https://github.com/eclipse/codewind/blob/master/src/pfe/portal/routes/environment.route.js
@@ -39,7 +36,7 @@ interface RawCWEnvData {
 export interface CWEnvData {
     readonly workspace: string;
     readonly socketNamespace: string;
-    readonly version: number;
+    readonly version: string;
     readonly tektonStatus: TektonStatus;
 }
 
@@ -58,19 +55,11 @@ namespace CWEnvironment {
         const envUri: Uri = url.with({ path: MCEndpoints.ENVIRONMENT });
         const connectTimeout = 2500;
 
-        try {
-            const result = await Requester.get(envUri.toString(), { timeout: connectTimeout });
-            Log.d("Raw env data:", result);
-            return massageEnv(result);
-        }
-        catch (err) {
-            Log.i(`Connection ENV Request fail - ${err}`);
-            // With the new install/start being abstracted away from the user, they should not have to see this message.
-            if (err instanceof reqErrors.RequestError) {
-                throw new Error(Translator.t(StringNamespaces.DEFAULT, "connectFailed", { uri: url }));
-            }
-            throw err;
-        }
+        const result = await Requester.get(envUri.toString(), { timeout: connectTimeout });
+        Log.d("Raw env data:", result);
+        const massaged = massageEnv(result);
+        Log.i("Massaged ENV data", massaged);
+        return massaged;
     }
 
     function massageEnv(rawEnv: RawCWEnvData): CWEnvData {
@@ -85,7 +74,7 @@ namespace CWEnvironment {
             throw new Error("No workspace information was provided by Codewind.");
         }
         const workspace = MCUtil.containerPathToFsPath(rawWorkspace);
-        const version = CWEnvironment.getVersionNumber(rawEnv);
+        const version = rawEnv.codewind_version || "Unknown";
 
         // normalize namespace so it doesn't start with '/'
         const socketNamespace = rawSocketNS.startsWith("/") ? rawSocketNS.substring(1, rawSocketNS.length) : rawSocketNS;

@@ -16,7 +16,6 @@ import Translator from "../constants/strings/translator";
 import StringNamespaces from "../constants/strings/StringNamespaces";
 import Log from "../Logger";
 import MCUtil from "../MCUtil";
-import openWorkspaceCmd from "./OpenWorkspaceCmd";
 import restartProjectCmd from "./project/RestartProjectCmd";
 import openAppCmd from "./project/OpenAppCmd";
 import requestBuildCmd from "./project/RequestBuildCmd";
@@ -29,20 +28,24 @@ import { manageLogs, showAllLogs, hideAllLogs } from "./project/ManageLogsCmd";
 import createProject from "./connection/CreateUserProjectCmd";
 import bindProject from "./connection/BindProjectCmd";
 import openPerformanceDashboard from "./project/OpenPerfDashboard";
-import startCodewindCmd from "./StartCodewindCmd";
-import stopCodewindCmd from "./StopCodewindCmd";
+import connectLocalCodewindCmd from "./StartCodewindCmd";
+import stopLocalCodewindCmd from "./StopCodewindCmd";
 import removeImagesCmd from "./RemoveImagesCmd";
 import { setRegistryCmd } from "./connection/SetRegistryCmd";
 import Connection from "../codewind/connection/Connection";
 import Project from "../codewind/project/Project";
 import ProjectState from "../codewind/project/ProjectState";
-import CodewindManager from "../codewind/connection/CodewindManager";
 import attachDebuggerCmd from "./project/AttachDebuggerCmd";
 import containerShellCmd from "./project/ContainerShellCmd";
 import removeProjectCmd from "./project/RemoveProjectCmd";
 import addProjectToWorkspaceCmd from "./project/AddToWorkspaceCmd";
 import manageTemplateReposCmd from "./connection/ManageTemplateReposCmd";
 import { openTektonDashboard } from "./connection/OpenTektonCmd";
+import ConnectionManager from "../codewind/connection/ConnectionManager";
+import { newRemoteConnectionCmd } from "./connection/NewConnectionCmd";
+import LocalCodewindManager from "../codewind/connection/local/LocalCodewindManager";
+import removeConnectionCmd from "./connection/RemoveConnectionCmd";
+import connectionOverviewCmd from "./connection/ConnectionOverviewCmd";
 
 export function createCommands(): vscode.Disposable[] {
 
@@ -54,19 +57,21 @@ export function createCommands(): vscode.Disposable[] {
     return [
         // vscode.commands.registerCommand(Commands.ACTIVATE_CONNECTION, () => activateConnectionCmd()),
         // vscode.commands.registerCommand(Commands.DEACTIVATE_CONNECTION, (selection) => deactivateConnectionCmd(selection)),
-        vscode.commands.registerCommand(Commands.START_CODEWIND,      startCodewindCmd),
-        vscode.commands.registerCommand(Commands.START_CODEWIND_2,    startCodewindCmd),
-        vscode.commands.registerCommand(Commands.STOP_CODEWIND,       stopCodewindCmd),
-        vscode.commands.registerCommand(Commands.STOP_CODEWIND_2,     stopCodewindCmd),
+        vscode.commands.registerCommand(Commands.START_LOCAL_CODEWIND,  connectLocalCodewindCmd),
+        vscode.commands.registerCommand(Commands.START_CODEWIND_2,      connectLocalCodewindCmd),
+        vscode.commands.registerCommand(Commands.STOP_LOCAL_CODEWIND,   stopLocalCodewindCmd),
+        vscode.commands.registerCommand(Commands.STOP_CODEWIND_2,       stopLocalCodewindCmd),
+        vscode.commands.registerCommand(Commands.REMOVE_LOCAL_IMAGES,   removeImagesCmd),
 
-        vscode.commands.registerCommand(Commands.REMOVE_IMAGES,       removeImagesCmd),
+        vscode.commands.registerCommand(Commands.NEW_CONNECTION, newRemoteConnectionCmd),
+        registerConnectionCommand(Commands.REMOVE_CONNECTION, removeConnectionCmd, undefined),
 
         registerConnectionCommand(Commands.CREATE_PROJECT, createProject, undefined),
         registerConnectionCommand(Commands.BIND_PROJECT, bindProject, undefined),
 
         registerConnectionCommand(Commands.REFRESH_CONNECTION, refreshConnectionCmd, undefined),
-        registerConnectionCommand(Commands.OPEN_WS_FOLDER, openWorkspaceCmd, undefined),
         registerConnectionCommand(Commands.MANAGE_TEMPLATE_REPOS, manageTemplateReposCmd, undefined),
+        registerConnectionCommand(Commands.CONNECTION_OVERVIEW, connectionOverviewCmd, undefined),
 
         registerConnectionCommand(Commands.SET_REGISTRY, setRegistryCmd, undefined),
         registerConnectionCommand(Commands.OPEN_TEKTON, openTektonDashboard, undefined),
@@ -116,19 +121,19 @@ function registerProjectCommand<T>(
     id: string, executor: (project: Project, params: T) => void, params: T,
     acceptableStates: ProjectState.AppStates[]): vscode.Disposable {
 
-    return vscode.commands.registerCommand(id, async (project: Project | undefined) => {
-        if (!project) {
-            project = await promptForProject(acceptableStates);
-            if (!project) {
+    return vscode.commands.registerCommand(id, async (selection: Project | undefined) => {
+        if (!selection) {
+            selection = await promptForProject(acceptableStates);
+            if (!selection) {
                 return;
             }
         }
         try {
-            executor(project, params);
+            executor(selection, params);
         }
         catch (err) {
             Log.e(`Unexpected error running command ${id}`, err);
-            vscode.window.showErrorMessage(`Error running command ${id}: on project ${project.name} ${MCUtil.errToString(err)}`);
+            vscode.window.showErrorMessage(`Error running command ${id}: on project ${selection.name} ${MCUtil.errToString(err)}`);
         }
     });
 }
@@ -149,19 +154,26 @@ function registerConnectionCommand<T>(
     id: string, executor: (connection: Connection, params: T) => void, params: T,
     connectedOnly: boolean = false): vscode.Disposable {
 
-    return vscode.commands.registerCommand(id, async (connection: Connection | undefined) => {
-        if (!connection) {
-            connection = await promptForConnection(connectedOnly);
-            if (!connection) {
+    // The selection can be a TreeItem if the command was run from the tree root's context menu,
+    // a Connection if the command was run from a Connection's context menu,
+    // or undefined if the command palette
+    return vscode.commands.registerCommand(id, async (selection: vscode.TreeItem | LocalCodewindManager | Connection | undefined) => {
+        if (selection instanceof LocalCodewindManager) {
+            selection = LocalCodewindManager.instance.localConnection;
+        }
+        if (!(selection instanceof Connection)) {
+            selection = await promptForConnection(connectedOnly);
+            // if (selection == null) {
+            if (!(selection instanceof Connection)) {
                 return;
             }
         }
         try {
-            executor(connection, params);
+            executor(selection, params);
         }
         catch (err) {
             Log.e(`Unexpected error running command ${id}`, err);
-            vscode.window.showErrorMessage(`Error running command ${id}: on connection ${connection.url} ${MCUtil.errToString(err)}`);
+            vscode.window.showErrorMessage(`Error running command ${id}: on connection ${selection.url} ${MCUtil.errToString(err)}`);
         }
     });
 }
@@ -180,7 +192,7 @@ async function promptForProject(acceptableStates: ProjectState.AppStates[]): Pro
         acceptableStates.push(ProjectState.AppStates.DEBUG_STARTING);
     }
 
-    const choices: vscode.QuickPickItem[] = (await CodewindManager.instance.allProjects)
+    const choices: vscode.QuickPickItem[] = (await ConnectionManager.instance.allProjects)
         .filter((p) => acceptableStates.includes(p.state.appState));
 
     // If no choices are available, show a popup message
@@ -217,15 +229,15 @@ function showNoValidProjectsMsg(acceptableStates: ProjectState.AppStates[]): voi
  * @connectedOnly Only prompt the user with Connected connections
  */
 async function promptForConnection(connectedOnly: boolean): Promise<Connection | undefined> {
-    if (CodewindManager.instance.connections.length === 1) {
-        const onlyConnection = CodewindManager.instance.connections[0];
+    if (ConnectionManager.instance.connections.length === 1) {
+        const onlyConnection = ConnectionManager.instance.connections[0];
         if (onlyConnection.isConnected || !connectedOnly) {
             return onlyConnection;
         }
     }
 
     const choices = [];
-    const connections = CodewindManager.instance.connections;
+    const connections = ConnectionManager.instance.connections;
     if (connectedOnly) {
         choices.push(...(connections.filter((conn) => conn.isConnected)));
     }
@@ -234,11 +246,11 @@ async function promptForConnection(connectedOnly: boolean): Promise<Connection |
     }
 
     if (choices.length === 0) {
-        const startCwBtn = "Start Codewind";
+        const startCwBtn = "Start Local Codewind";
         vscode.window.showWarningMessage(Translator.t(STRING_NS, "noConnToRunOn"), startCwBtn)
         .then((res?: string) => {
             if (res === startCwBtn) {
-                startCodewindCmd();
+                connectLocalCodewindCmd(true);
             }
         });
 
@@ -247,6 +259,6 @@ async function promptForConnection(connectedOnly: boolean): Promise<Connection |
 
     return /* await */ vscode.window.showQuickPick(choices, {
         canPickMany: false,
-        placeHolder: "Select a Connection to run this command on",
+        placeHolder: "Select a connection to run this command on",
     }) as Promise<Connection>;
 }

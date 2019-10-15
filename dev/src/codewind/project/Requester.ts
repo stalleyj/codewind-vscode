@@ -22,10 +22,11 @@ import StringNamespaces from "../../constants/strings/StringNamespaces";
 import Translator from "../../constants/strings/translator";
 import MCUtil from "../../MCUtil";
 import EndpointUtil, { ProjectEndpoints, Endpoint, MCEndpoints } from "../../constants/Endpoints";
-import { ILogResponse } from "../connection/SocketEvents";
-import { IMCTemplateData } from "../connection/UserProjectCreator";
+import SocketEvents, { ILogResponse } from "../connection/SocketEvents";
+import { ICWTemplateData } from "../connection/UserProjectCreator";
 import Connection from "../connection/Connection";
 import { ITemplateRepo, IRepoEnablement } from "../../command/connection/ManageTemplateReposCmd";
+import { StatusCodeError } from "request-promise-native/errors";
 
 type RequestFunc = (uri: string, options: request.RequestPromiseOptions) => request.RequestPromise<any> | Promise<any>;
 
@@ -71,9 +72,28 @@ namespace Requester {
         return req(request.delete, url, options);
     }
 
+    export async function ping(url: string | vscode.Uri): Promise<boolean> {
+        if (url instanceof vscode.Uri) {
+            url = url.toString();
+        }
+        try {
+            await request.get(url, { resolveWithFullResponse: true });
+            // It succeeded
+            return true;
+        }
+        catch (err) {
+            if (err instanceof StatusCodeError) {
+                // it was reachable, but returned a bad status
+                return true;
+            }
+            // it was not reachable
+            return false;
+        }
+    }
+
     ///// Connection-specific requests
 
-    export async function getTemplates(connection: Connection): Promise<IMCTemplateData[]> {
+    export async function getTemplates(connection: Connection): Promise<ICWTemplateData[]> {
         const result = await doConnectionRequest(connection, MCEndpoints.TEMPLATES, Requester.get, { qs: { showEnabledOnly: true }});
         if (result == null) {
             return [];
@@ -135,6 +155,17 @@ namespace Requester {
         // Log.d("Repo enablement result", result);
     }
 
+    export async function configureRegistry(connection: Connection, operation: "set" | "test", deploymentRegistry: string)
+        : Promise<SocketEvents.IRegistryStatus> {
+
+        const body = {
+            deploymentRegistry,
+            operation,
+        };
+
+        return doConnectionRequest(connection, MCEndpoints.REGISTRY, Requester.post, { body });
+    }
+
     async function doConnectionRequest(
         connection: Connection, endpoint: MCEndpoints, method: RequestFunc, options?: request.RequestPromiseOptions): Promise<any> {
 
@@ -165,11 +196,14 @@ namespace Requester {
 
         // return doProjectRequest(project, url, body, Requester.post, "Build");
         const buildMsg = Translator.t(STRING_NS, "build");
-        if (project.connection.remote) {
-            await syncFiles(project);
-        } else {
-            Log.i(`Local build from local file system at ${project.localPath}`);
-        }
+        const localPath = MCUtil.fsPathToContainerPath(project.localPath);
+        Log.i(`Copying updated files from ${localPath} to ${project.connection.host}`);
+        const syncTime = Date.now();
+        const fileList = await requestUploadsRecursively(project.connection, project.id, localPath, localPath, project._lastSync);
+        Log.i(`Clearing old content for ${project.name} from ${project.connection.host}`);
+        await requestClear(project, fileList);
+        Log.i(`Sync complete for ${project.name} to ${project.connection.host} in ${Date.now() - syncTime}ms`);
+        project._lastSync = syncTime;
         await doProjectRequest(project, ProjectEndpoints.BUILD_ACTION, body, Requester.post, buildMsg);
     }
 

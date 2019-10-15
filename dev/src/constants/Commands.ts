@@ -11,14 +11,16 @@
 
 // non-nls-file
 
+// all of these MUST MATCH package.nls.json command IDs
 enum Commands {
-    // all of these must match package.nls.json command IDs
+    NEW_CONNECTION = "ext.cw.newConnection",
+    REMOVE_CONNECTION = "ext.cw.removeConnection",
 
     // ACTIVATE_CONNECTION = "ext.cw.activateConn",
     // DEACTIVATE_CONNECTION = "ext.cw.deactivateConn",
-    START_CODEWIND = "ext.cw.startCodewind",
-    STOP_CODEWIND = "ext.cw.stopCodewind",
-    REMOVE_IMAGES = "ext.cw.removeImages",
+    START_LOCAL_CODEWIND = "ext.cw.startCodewind",
+    STOP_LOCAL_CODEWIND = "ext.cw.stopCodewind",
+    REMOVE_LOCAL_IMAGES = "ext.cw.removeImages",
 
     // These "commands" are the same as START and STOP_CODEWIND,
     // but are registered separately with the "On/Off" icons so we can have the two inline buttons (which do the same thing)
@@ -32,6 +34,7 @@ enum Commands {
     CREATE_PROJECT = "ext.cw.createProject",
     BIND_PROJECT = "ext.cw.bindProject",
     MANAGE_TEMPLATE_REPOS = "ext.cw.manageTemplateRepos",
+    CONNECTION_OVERVIEW = "ext.cw.connectionOverview",
 
     OPEN_WS_FOLDER = "ext.cw.openWorkspaceFolder",
 

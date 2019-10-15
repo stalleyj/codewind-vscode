@@ -12,16 +12,16 @@
 import * as vscode from "vscode";
 
 import Connection from "../../codewind/connection/Connection";
-import { setRegistry } from "../../codewind/connection/Registry";
-import MCUtil from "../../MCUtil";
-import Log from "../../Logger";
+import RemoteConnection from "../../codewind/connection/RemoteConnection";
+import ConnectionOverview from "../webview/ConnectionOverview";
 
-export async function setRegistryCmd(connection: Connection): Promise<void> {
-    try {
-        await setRegistry(connection);
+export default async function remoteConnectionOverviewCmd(connection: Connection): Promise<void> {
+    // if (!(connection instanceof RemoteConnection)) {
+    if (!(connection.isRemote)) {
+        vscode.window.showWarningMessage("The Local connection does not have any data to show in the overview.");
+        return;
     }
-    catch (err) {
-        Log.e("Error doing setRegistryCmd", err);
-        vscode.window.showErrorMessage(MCUtil.errToString(err));
-    }
+
+    const remoteConnection = connection as RemoteConnection;
+    ConnectionOverview.showForExistingConnection(remoteConnection);
 }

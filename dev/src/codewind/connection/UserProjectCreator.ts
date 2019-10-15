@@ -18,10 +18,9 @@ import EndpointUtil, { MCEndpoints, ProjectEndpoints } from "../../constants/End
 import SocketEvents from "./SocketEvents";
 import Requester from "../project/Requester";
 import ProjectType from "../project/ProjectType";
-import MCUtil from "../../MCUtil";
-import InstallerWrapper from "./InstallerWrapper";
+import CLIWrapper from "./CLIWrapper";
 
-export interface IMCTemplateData {
+export interface ICWTemplateData {
     label: string;
     description: string;
     url: string;
@@ -36,7 +35,7 @@ interface IProjectTypeInfo {
 
 export interface IInitializationResponse {
     status: string;
-    result: IProjectTypeInfo | { error: string; };
+    result: IProjectTypeInfo | string | { error: string };
     projectPath: string;
 }
 
@@ -50,26 +49,23 @@ interface INewProjectInfo {
  */
 namespace UserProjectCreator {
 
-    export async function createProject(connection: Connection, template: IMCTemplateData, projectName: string): Promise<INewProjectInfo> {
+    export async function createProject(
+        connection: Connection, template: ICWTemplateData, parentDir: vscode.Uri, projectName: string): Promise<INewProjectInfo> {
 
-        // right now projects must be created under the codewind workspace so users can't choose the parentDir
-        // abs path on user system under which the project will be created
-        const userParentDir = connection.workspacePath;
-
-        const projectPath = path.join(userParentDir.fsPath, projectName);
+        const projectPath = path.join(parentDir.fsPath, projectName);
 
         const creationRes = await vscode.window.withProgress({
             cancellable: false,
             location: vscode.ProgressLocation.Notification,
             title: `Creating ${projectName}...`,
         }, () => {
-            return InstallerWrapper.createProject(projectPath, template.url);
+            return CLIWrapper.createProject(projectPath, template.url);
         });
 
         if (creationRes.status !== SocketEvents.STATUS_SUCCESS) {
             // failed
-            const failedResult = (creationRes.result as { error: string });
-            throw new Error(failedResult.error);
+            const failedResult = (creationRes.result as any).error || creationRes.result as string;
+            throw new Error(failedResult);
         }
 
         const projectTypeInfo = creationRes.result as IProjectTypeInfo;
@@ -133,13 +129,14 @@ namespace UserProjectCreator {
     async function bind(connection: Connection, projectName: string,
                         pathToBind: string, projectTypeInfo: IProjectTypeInfo):
                         Promise<INewProjectInfo | undefined> {
-        if (connection.remote) {
+        // if (connection.remote) {
             return bindRemote(connection, projectName, pathToBind, projectTypeInfo);
-        } else {
-            return bindLocal(connection, projectName, pathToBind, projectTypeInfo);
-        }
+        // } else {
+        // return bindLocal(connection, projectName, pathToBind, projectTypeInfo);
+        // }
     }
 
+    /*
     async function bindLocal(connection: Connection, projectName: string,
                              pathToBind: string, projectTypeInfo: IProjectTypeInfo):
                              Promise<INewProjectInfo | undefined> {
@@ -147,6 +144,7 @@ namespace UserProjectCreator {
         await requestLocalBind(connection, projectName, pathToBind, projectTypeInfo.language, projectTypeInfo.projectType);
         return { projectName, projectPath: pathToBind };
     }
+    */
 
     async function bindRemote(connection: Connection, projectName: string,
                               pathToBind: string, projectTypeInfo: IProjectTypeInfo):
@@ -236,7 +234,7 @@ namespace UserProjectCreator {
 
     const OTHER_LANG_BTN = "Other";
 
-    async function promptForLanguage(templates: IMCTemplateData[]): Promise<string | undefined> {
+    async function promptForLanguage(templates: ICWTemplateData[]): Promise<string | undefined> {
         Log.d("Prompting user for project language");
         let languageQpis = templates.map((template) => template.language);
         // remove duplicates
@@ -275,13 +273,13 @@ namespace UserProjectCreator {
             location: vscode.ProgressLocation.Notification,
             cancellable: false,
         }, () => {
-            return InstallerWrapper.validateProjectDirectory(pathToBind);
+            return CLIWrapper.validateProjectDirectory(pathToBind);
         });
         Log.d("validate response", validateResponse);
         return validateResponse;
     }
 
-    export async function promptForDir(btnLabel: string, defaultUri: vscode.Uri): Promise<vscode.Uri | undefined> {
+    export async function promptForDir(btnLabel: string, defaultUri: vscode.Uri | undefined): Promise<vscode.Uri | undefined> {
         // if (!defaultUri && vscode.workspace.workspaceFolders != null) {
         //     defaultUri = vscode.workspace.workspaceFolders[0].uri;
         // }
@@ -300,6 +298,7 @@ namespace UserProjectCreator {
         return selectedDirs[0];
     }
 
+    /*
     async function requestLocalBind(connection: Connection, projectName: string, dirToBindFsPath: string, language: string, projectType: string)
         : Promise<void> {
 
@@ -324,6 +323,7 @@ namespace UserProjectCreator {
 
         // return bindRes;
     }
+    */
 
     async function requestRemoteBindStart(connection: Connection, projectName: string,
                                           dirToBindContainerPath: string,

@@ -9,8 +9,17 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 
-export enum CWConfigurations {
-    AUTO_SHOW_VIEW = "codewind.autoShowView",
-    OVERVIEW_ON_CREATION = "codewind.openOverviewOnCreation",
-    ALWAYS_CREATE_IN_WORKSPACE = "codewind.alwaysCreateProjectsInWorkspace",
+export class CLICommand {
+    constructor(
+        public readonly command: string,
+        public readonly cancellable: boolean,
+        public readonly hasJSONOutput: boolean
+    ) {
+
+    }
 }
+
+// tslint:disable-next-line: variable-name
+export const CLICommands = {
+    PROJECT: new CLICommand("project", false, true),
+};

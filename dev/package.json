@@ -59,22 +59,36 @@
                         "default": true,
                         "scope": "application"
                     },
-                    "codewind.promptToOpenWorkspace": {
-                        "description": "%configDescr_promptToOpenWorkspace%",
-                        "type": "boolean",
-                        "default": true,
-                        "scope": "application"
-                    },
                     "codewind.openOverviewOnCreation": {
                         "description": "%configDescr_overviewOnCreation%",
                         "type": "boolean",
                         "default": true,
                         "scope": "application"
+                    },
+                    "codewind.alwaysCreateProjectsInWorkspace": {
+                        "description": "%configDescr_alwaysCreateProjectsInWorkspace%",
+                        "type": "boolean",
+                        "default": false,
+                        "scope": "resource"
                     }
                 }
             }
         ],
         "commands": [
+            {
+                "command": "%cmdID_newConnection%",
+                "title": "%cmdTitle_newConnection%",
+                "category": "%commandCategory%",
+                "icon": {
+                    "light": "res/img/light/new_cloud.svg",
+                    "dark": "res/img/dark/new_cloud.svg"
+                }
+            },
+            {
+                "command": "%cmdID_removeConnection%",
+                "title": "%cmdTitle_removeConnection%",
+                "category": "%commandCategory%"
+            },
             {
                 "command": "%cmdID_startCodewind%",
                 "title": "%cmdTitle_startCodewind%",
@@ -149,6 +163,15 @@
                 "category": "%commandCategory%"
             },
             {
+                "command": "%cmdID_connectionOverview%",
+                "title": "%cmdTitle_connectionOverview%",
+                "category": "%commandCategory%",
+                "icon": {
+                    "light": "res/img/light/info.svg",
+                    "dark": "res/img/dark/info.svg"
+                }
+            },
+            {
                 "command": "%cmdID_setRegistry%",
                 "title": "%cmdTitle_setRegistry%",
                 "category": "%commandCategory%"
@@ -161,11 +184,6 @@
                     "light": "res/img/light/tekton.svg",
                     "dark": "res/img/dark/tekton.svg"
                 }
-            },
-            {
-                "command": "%cmdID_openFolder%",
-                "title": "%cmdTitle_openFolder%",
-                "category": "%commandCategory%"
             },
             {
                 "command": "%cmdID_addProjToWorkspace%",
@@ -298,72 +316,70 @@
                     "when": "never"
                 }
             ],
-            "view/title": [],
+            "view/title": [
+                {
+                    "command": "%cmdID_newConnection%",
+                    "group": "navigation@0"
+                },
+                {
+                    "command": "%cmdID_newProject%",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "%cmdID_bindProject%",
+                    "group": "navigation@2"
+                }
+            ],
             "view/item/context": [
                 {
                     "command": "%cmdID_startCodewind%",
-                    "when": "%isStoppedCodewind%",
+                    "when": "%isStoppedLocalCodewind%",
                     "group": "ext.cw.cwstatus.a@0"
                 },
                 {
                     "command": "%cmdID_startCodewind%",
-                    "when": "%isStoppedCodewind%",
+                    "when": "%isStoppedLocalCodewind%",
                     "group": "inline@0"
                 },
                 {
                     "command": "%cmdID_startCodewind2%",
-                    "when": "%isStoppedCodewind%",
+                    "when": "%isStoppedLocalCodewind%",
                     "group": "inline@1"
                 },
                 {
-                    "command": "%cmdID_removeImages%",
-                    "when": "%isStoppedCodewind%",
-                    "group": "ext.cw.cwstatus.b@0"
-                },
-                {
                     "command": "%cmdID_stopCodewind%",
-                    "when": "%isStartedCodewind%",
+                    "when": "%isStartedLocalCodewind%",
                     "group": "ext.cw.cwstatus.a@0"
                 },
                 {
                     "command": "%cmdID_stopCodewind%",
-                    "when": "%isStartedCodewind%",
+                    "when": "%isStartedLocalCodewind%",
                     "group": "inline@0"
                 },
                 {
                     "command": "%cmdID_stopCodewind2%",
-                    "when": "%isStartedCodewind%",
+                    "when": "%isStartedLocalCodewind%",
                     "group": "inline@1"
                 },
                 {
-                    "command": "%cmdID_newProject%",
-                    "when": "%isActiveConnection%",
-                    "group": "ext.cw.conn.a@1"
+                    "command": "%cmdID_removeImages%",
+                    "when": "%isStoppedLocalCodewind%",
+                    "group": "ext.cw.cwstatus.b@0"
                 },
                 {
-                    "command": "%cmdID_newProject%",
-                    "when": "%isActiveConnection%",
-                    "group": "inline@0"
+                    "command": "%cmdID_connectionOverview%",
+                    "when": "%isRemoteConnection%",
+                    "group": "ext.cw.conn.a@0"
                 },
                 {
-                    "command": "%cmdID_bindProject%",
-                    "when": "%isActiveConnection%",
-                    "group": "ext.cw.conn.a@2"
-                },
-                {
-                    "command": "%cmdID_bindProject%",
-                    "when": "%isActiveConnection%",
-                    "group": "inline@1"
+                    "command": "%cmdID_connectionOverview%",
+                    "when": "%isRemoteConnection%",
+                    "group": "inline"
                 },
                 {
                     "command": "%cmdID_manageTemplateRepos%",
                     "when": "%isActiveConnection%",
-                    "group": "ext.cw.conn.a@3"
-                },
-                {
-                    "command": "%cmdID_openFolder%",
-                    "when": "%isConnection%",
-                    "group": "ext.cw.conn.b"
+                    "group": "ext.cw.conn.a@1"
                 },
                 {
                     "command": "%cmdID_setRegistry%",
@@ -379,6 +395,11 @@
                     "command": "%cmdID_refreshConnection%",
                     "when": "%isConnection%",
                     "group": "ext.cw.conn.d@0"
+                },
+                {
+                    "command": "%cmdID_removeConnection%",
+                    "when": "%isRemoteConnection%",
+                    "group": "ext.cw.conn.e@0"
                 },
                 {
                     "command": "%cmdID_openInBrowser%",
@@ -522,7 +543,7 @@
         "socketio-wildcard": "^2.0.0",
         "ts-node": "^7.0.1",
         "tslint": "^5.18.0",
-        "typescript": "^3.5.3",
+        "typescript": "^3.6.2",
         "vscode": "^1.1.36"
     },
     "dependencies": {
